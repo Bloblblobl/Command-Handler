@@ -9,17 +9,17 @@ class CommandHandler(object):
         <command name>: {function: <function>, metadata: <metadata>}
 
     ch_format is a dictionary of configuration settings for the CommandHandler
-        >   If arg_dict is True, commands will be processed like a dictionary:
+        --> If arg_dict is True, commands will be processed like a dictionary:
                 <command name>|<arg1 name>=<arg1 value> <arg2 name>=<arg2 value>
             Otherwise, commands will be processed like a dictionary:
                 <command name>|<arg1 value>, <arg2 value>, <arg3 value>
-        >   command_arg_splitter is the character the CommandHandler will look for
+        --> command_arg_splitter is the character the CommandHandler will look for
             between the command and the arguments
-        >   arg_value_splitter is the character the CommandHandler will look for
+        --> arg_value_splitter is the character the CommandHandler will look for
             between the argument names and their values when arg_dict is True
-        >   dict_arg_splitter is the character the CommandHandler will look for
+        --> dict_arg_splitter is the character the CommandHandler will look for
             between the argument-value pairs when arg_dict is True
-        >   list_arg_splitter is the character the CommandHandler will look for
+        --> list_arg_splitter is the character the CommandHandler will look for
             between the arguments when arg_dict is False
     """
     def __init__(self, commands):
@@ -36,8 +36,9 @@ class CommandHandler(object):
 
     def _check_args(self, command_name, args):
         """
-        Asserts that the correct number of arguments are provided
-        If arg_dict is True, also asserts that all required arguments
+        Assert that the correct number of arguments are provided
+
+        If arg_dict is True, also assert that all required arguments
         are provided and no extraneous arguments are provided
         """
         command_metadata = self.command_list[command_name]['metadata']
@@ -59,7 +60,7 @@ class CommandHandler(object):
         return True
 
     def get_command_metadata(self, command_name):
-        """Gets the metadata for a command in the form of a dictionary"""
+        """Get the metadata for a command in the form of a dictionary"""
         command = self.command_list[command_name]['function']
         command_signature = inspect.signature(command)
         command_args = dict(required=[], default=[])
@@ -72,7 +73,7 @@ class CommandHandler(object):
 
     def add_commands(self, commands):
         """
-        Adds a dictionary of commands to the command_list
+        Add a dictionary of commands to the command_list
         commands should be a dictionary where the key is a string and the value is a function
         """
         for key in commands:
@@ -80,7 +81,7 @@ class CommandHandler(object):
             self.command_list[key] = dict(function=commands[key], metadata=command_metadata)
 
     def handle_command(self, command_text):
-        """Parses command_text and calls execute_command"""
+        """Parse command_text and calls execute_command"""
         command_text = command_text.split(self.ch_format['command_arg_splitter'])
         command_name, command_args = command_text[0], command_text[1]
         if self.ch_format['arg_dict']:
@@ -95,7 +96,7 @@ class CommandHandler(object):
         self.execute_command(command_name, command_args)
 
     def execute_command(self, command_name, args):
-        """Calls the function corresponding to the command_name from command_list with args"""
+        """Call the function corresponding to the command_name from command_list with args"""
         # Add in error handling here
         data = self.command_list[command_name](args)
         self.invocation_history.append(data)

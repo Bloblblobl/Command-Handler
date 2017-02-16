@@ -1,9 +1,10 @@
 import inspect
+import datetime
 
 
 class CommandHandler(object):
     """
-    A class to handle an arbitrary list of commands for embedded CLIs
+    A class to handle an arbitrary list of commands for embedded CLIs.
 
     command_list stores a dictionary of all possible commands:
         <command name>: {function: <function>, metadata: <metadata>}
@@ -14,13 +15,13 @@ class CommandHandler(object):
             Otherwise, commands will be processed like a dictionary:
                 <command name>|<arg1 value>, <arg2 value>, <arg3 value>
         --> command_arg_splitter is the character the CommandHandler will look for
-            between the command and the arguments
+            between the command and the arguments.
         --> arg_value_splitter is the character the CommandHandler will look for
-            between the argument names and their values when arg_dict is True
+            between the argument names and their values when arg_dict is True.
         --> dict_arg_splitter is the character the CommandHandler will look for
-            between the argument-value pairs when arg_dict is True
+            between the argument-value pairs when arg_dict is True.
         --> list_arg_splitter is the character the CommandHandler will look for
-            between the arguments when arg_dict is False
+            between the arguments when arg_dict is False.
     """
     def __init__(self, commands):
         command_list = {}
@@ -36,10 +37,10 @@ class CommandHandler(object):
 
     def _check_args(self, command_name, args):
         """
-        Assert that the correct number of arguments are provided
+        Assert that the correct number of arguments are provided.
 
         If arg_dict is True, also assert that all required arguments
-        are provided and no extraneous arguments are provided
+        are provided and no extraneous arguments are provided.
         """
         command_metadata = self.command_list[command_name]['metadata']
         min_args = len(command_metadata['required'])
@@ -60,7 +61,7 @@ class CommandHandler(object):
         return True
 
     def get_command_metadata(self, command_name):
-        """Get the metadata for a command in the form of a dictionary"""
+        """Get the metadata for a command in the form of a dictionary."""
         command = self.command_list[command_name]['function']
         command_signature = inspect.signature(command)
         command_args = dict(required=[], default=[])
@@ -72,16 +73,13 @@ class CommandHandler(object):
         return command_args
 
     def add_commands(self, commands):
-        """
-        Add a dictionary of commands to the command_list
-        commands should be a dictionary where the key is a string and the value is a function
-        """
+        """Add a dictionary of commands to the command_list."""
         for key in commands:
             command_metadata = self.get_command_metadata(commands[key])
             self.command_list[key] = dict(function=commands[key], metadata=command_metadata)
 
     def handle_command(self, command_text):
-        """Parse command_text and calls execute_command"""
+        """Parse command_text and calls execute_command."""
         command_text = command_text.split(self.ch_format['command_arg_splitter'])
         command_name, command_args = command_text[0], command_text[1]
         if self.ch_format['arg_dict']:
@@ -96,7 +94,14 @@ class CommandHandler(object):
         self.execute_command(command_name, command_args)
 
     def execute_command(self, command_name, args):
-        """Call the function corresponding to the command_name from command_list with args"""
+        """Call the function corresponding to the command_name from command_list with args."""
         # Add in error handling here
-        data = self.command_list[command_name](args)
-        self.invocation_history.append(data)
+        if self.ch_format['arg_dict']:
+            result = self.command_list[command_name](**args)
+        else:
+            result = self.command_list[command_name](*args)
+
+        if result:
+            timestamp = datetime.datetime.utcnow()
+            result = dict(timestamp=timestamp, args=args, command=command_name, ch_format=self.ch_format)
+            self.invocation_history.append(result)

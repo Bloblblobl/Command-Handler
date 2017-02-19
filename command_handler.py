@@ -44,17 +44,17 @@ class CommandHandler(object):
         :return:
         """
         if self.ch_format['arg_dict']:
-            args_list = command_args.split(self.ch_format['dict_arg_splitter'])
-            args_list = [a for a in args_list if a]
+            args_list = [a for a in command_args.split(self.ch_format['dict_arg_splitter']) if a]
             command_args = {}
 
             for kvpair in args_list:
-                kvpair = kvpair.split(self.ch_format['arg_value_splitter'])
-                arg_key, arg_value = kvpair[0], kvpair[1]
+                kvpair = [a for a in kvpair.split(self.ch_format['arg_value_splitter']) if a]
+                arg_key, arg_value = kvpair[0], kvpair[1] if len(kvpair) > 1 else None
+                if not arg_value:
+                    return '[ERROR] Incorrect Argument Format'
                 command_args[arg_key] = arg_value
         else:
-            command_args = command_args.split(self.ch_format['list_arg_splitter'])
-            command_args = [a for a in command_args if a]
+            command_args = [a for a in command_args.split(self.ch_format['list_arg_splitter']) if a]
         return command_args
 
     def _validate_args(self, command_name, args):
@@ -134,6 +134,10 @@ class CommandHandler(object):
             return '[ERROR] Command Requires Arguments'
 
         command_args = self._parse_args(command_args) if command_args else None
+
+        # If command_args is a string after parsing, that means its an error
+        if isinstance(command_args, str):
+            return command_args
         error = self._validate_args(command_name, command_args) if command_args else None
 
         return error if error else self.execute_command(command_name, command_args)

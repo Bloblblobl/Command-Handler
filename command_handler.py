@@ -51,7 +51,7 @@ class CommandHandler(object):
                 kvpair = [a for a in kvpair.split(self.ch_format['arg_value_splitter']) if a]
                 arg_key, arg_value = kvpair[0], kvpair[1] if len(kvpair) > 1 else None
                 if not arg_value:
-                    return '[ERROR] Incorrect Argument Format'
+                    raise RuntimeError('Incorrect Argument Format')
                 command_args[arg_key] = arg_value
         else:
             command_args = [a for a in command_args.split(self.ch_format['list_arg_splitter']) if a]
@@ -72,19 +72,18 @@ class CommandHandler(object):
         min_args = len(command_args_metadata['required'])
         max_args = min_args + len(command_args_metadata['default'])
         if len(args) < min_args or len(args) > max_args:
-            return '[ERROR] Missing Required Argument'
+            raise RuntimeError('Missing Required Argument')
 
         if self.ch_format['arg_dict']:
             # Check if args does not contain all required arguments
             for a in command_args_metadata['required']:
                 if a not in args:
-                    return '[ERROR] Missing Required Argument; Unrecognized Argument'
+                    raise RuntimeError('Missing Required Argument')
             # Check if args contains an extraneous argument
             for a in args:
                 if a not in command_args_metadata['required'] and a not in command_args_metadata['required']:
-                    return '[ERROR] Unrecognized Argument'
+                    raise RuntimeError('Unrecognized Argument')
 
-        return
 
     def get_command_metadata(self, command_name):
         """
@@ -128,19 +127,19 @@ class CommandHandler(object):
         command_name = command_text[0]
         command_args = command_text[1] if len(command_text) > 1 else None
 
-        if command_name not in self.command_list:
-            return '[ERROR] Unknown Command'
-        if command_args is None and len(self.command_list[command_text[0]]['metadata']['args']['required']) != 0:
-            return '[ERROR] Command Requires Arguments'
+        try:
+            if command_name not in self.command_list:
+                raise RuntimeError('Unknown Command')
+            if command_args is None and len(self.command_list[command_text[0]]['metadata']['args']['required']) != 0:
+                raise RuntimeError('Command Requires Arguments')
 
-        command_args = self._parse_args(command_args) if command_args else None
+            command_args = self._parse_args(command_args) if command_args else None
+            self._validate_args(command_name, command_args)
 
-        # If command_args is a string after parsing, that means its an error
-        if isinstance(command_args, str):
-            return command_args
-        error = self._validate_args(command_name, command_args) if command_args else None
+        except RuntimeError as e:
+            return e
 
-        return error if error else self.execute_command(command_name, command_args)
+        return self.execute_command(command_name, command_args)
 
     def execute_command(self, command_name, args):
         """

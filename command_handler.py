@@ -38,7 +38,7 @@ class CommandHandler(object):
 
     def _parse_args(self, command_args):
         """
-        Parse arguments into dictionary or list.
+        Parse arguments into a dictionary or list.
 
         :param command_args:
         :return:
@@ -84,7 +84,6 @@ class CommandHandler(object):
                 if a not in command_args_metadata['required'] and a not in command_args_metadata['required']:
                     raise RuntimeError('Unrecognized Argument')
 
-
     def get_command_metadata(self, command_name):
         """
         Get the metadata for a command in the form of a dictionary.
@@ -113,12 +112,12 @@ class CommandHandler(object):
         for command in commands:
             command_name = [key for key in command][0]
             self.command_list[command_name] = dict(function=command[command_name])
-            command_metadata = self.get_command_metadata(command_name)
+            command_metadata = command[1] if len(command) > 1 else self.get_command_metadata(command_name)
             self.command_list[command_name]['metadata'] = command_metadata
 
     def handle_command(self, command_text):
         """
-        Parse command_text and calls execute_command.
+        Parse command_text and call execute_command.
 
         :param command_text: string literal to be parsed into command_text and args
         :return:

@@ -1,13 +1,13 @@
-import inspect
 import datetime
+from command import Command
 
 
 class CommandHandler(object):
     """A class to handle an arbitrary list of commands for embedded CLIs."""
 
-    def __init__(self, commands=[]):
+    def __init__(self, commands=None):
         """
-        command_list stores a dictionary of all possible commands
+        command_list is a dictionary of Command objects
 
         ch_format is a dictionary of configuration settings for the CommandHandler
             --> If arg_dict is True, commands will be processed like a dictionary:
@@ -25,7 +25,7 @@ class CommandHandler(object):
 
         :param commands: list of dictionaries - <command name>: {function: <function>, metadata: <metadata>}
         """
-        self.command_list = {}
+        self.commands = {}
         if commands:
             self.add_commands(commands)
 
@@ -57,111 +57,57 @@ class CommandHandler(object):
             command_args = [a for a in command_args.split(self.ch_format['list_arg_splitter']) if a]
         return command_args
 
-    def _validate_args(self, command_name, args):
-        """
-        Assert that the correct number of arguments are provided.
-
-        If arg_dict is True, also assert that all required arguments
-        are provided and no extraneous arguments are provided.
-
-        :param command_name: string literal that corresponds to command in self.command_list
-        :param args: list or dictionary containing arguments
-        :return:
-        """
-        command_args_metadata = self.command_list[command_name]['metadata']['args']
-        min_args = len(command_args_metadata['required'])
-        max_args = min_args + len(command_args_metadata['default'])
-        if len(args) < min_args or len(args) > max_args:
-            raise RuntimeError('Missing Required Argument')
-
-        if self.ch_format['arg_dict']:
-            # Check if args does not contain all required arguments
-            for a in command_args_metadata['required']:
-                if a not in args:
-                    raise RuntimeError('Missing Required Argument')
-            # Check if args contains an extraneous argument
-            for a in args:
-                if a not in command_args_metadata['required'] and a not in command_args_metadata['required']:
-                    raise RuntimeError('Unrecognized Argument')
-
-    def get_command_metadata(self, command_name):
-        """
-        Get the metadata for a command in the form of a dictionary.
-
-        :param command_name: string literal that corresponds to command in self.command_list
-        :return: dictionary in metadata format
-        """
-        command = self.command_list[command_name]['function']
-        command_signature = inspect.signature(command)
-        command_args = dict(required=[], default=[])
-        for param in command_signature.parameters.values():
-            if param.default is param.empty:
-                command_args['required'].append(param.name)
-            else:
-                command_args['default'].append(param.name)
-        command_metadata = dict(args=command_args)
-        return command_metadata
-
     def add_commands(self, commands):
         """
-        Add a dictionary of commands to the command_list.
+        Add commands to the command_dict.
 
-        :param commands: list of dictionaries - <command name>: <function>
+        :param commands: list of tuples of command names and function - [[<command names>], <function>]
         :return:
         """
         for command in commands:
-            command_name = [key for key in command][0]
-            self.command_list[command_name] = dict(function=command[command_name])
-            command_metadata = command[1] if len(command) > 1 else self.get_command_metadata(command_name)
-            self.command_list[command_name]['metadata'] = command_metadata
+            command_names, command_func = command[0], command[1]
+            self.commands[command_names] = Command(command_names, command_func)
 
     def handle_command(self, command_text):
         """
         Parse command_text and call execute_command.
 
-        :param command_text: string literal to be parsed into command_text and args
+        :param command_text: string to be parsed into command_text and args
         :return:
         """
         command_text = [s for s in command_text.split(self.ch_format['command_arg_splitter']) if s != '']
         command_name = command_text[0]
         command_args = command_text[1] if len(command_text) > 1 else None
 
-        try:
-            if command_name not in self.command_list:
-                raise RuntimeError('Unknown Command')
-            if command_args is None and len(self.command_list[command_text[0]]['metadata']['args']['required']) != 0:
-                raise RuntimeError('Command Requires Arguments')
+        command = None
+        for command_pair in self.commands:
+            if command_name in command_pair[0]:
+                command = command_pair[1]
+        if command is None:
+            raise RuntimeError('Unknown Command')
 
-            command_args = self._parse_args(command_args) if command_args else None
-            self._validate_args(command_name, command_args)
+        command_args = self._parse_args(command_args) if command_args else None
 
-        except RuntimeError as e:
-            return e
+        return self.execute_command(command, command_args, command_name)
 
-        return self.execute_command(command_name, command_args)
-
-    def execute_command(self, command_name, args):
+    def execute_command(self, command, args, name):
         """
-        Call the function corresponding to the command_name from command_list with args.
+        Call the function corresponding to the command_name from command_dict with args.
 
-        :param command_name: string literal that corresponds to command in self.command_list
+        :param command_name: string that corresponds to command in self.commands
         :param args: list or dictionary containing arguments
         :return:
         """
-        if args:
-            if self.ch_format['arg_dict']:
-                result = self.command_list[command_name]['function'](**args)
-            else:
-                result = self.command_list[command_name]['function'](*args)
-        else:
-            result = self.command_list[command_name]['function']()
 
-        if result:
-            timestamp = datetime.datetime.utcnow()
-            history_entry = dict(timestamp=timestamp,
-                                 args=args,
-                                 command=command_name,
-                                 ch_format=self.ch_format,
-                                 result=result)
-            self.invocation_history.append(history_entry)
-            return result
+        result = command.invoke(args)
+
+        timestamp = datetime.datetime.utcnow()
+        history_entry = dict(timestamp=timestamp,
+                             args=args,
+                             command=command.names[0],
+                             ch_format=self.ch_format,
+                             result=result)
+        if name != command.names[0]:
+            history_entry['synonym'] = name
+        self.invocation_history.append(history_entry)
+        return result
